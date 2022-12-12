@@ -87,9 +87,10 @@ div input {
   padding-left: 2%;
 }
 
-button {
-  height: 12%;
-  width: 80%;
+button, a {
+  padding: 8px 12px;
+  text-decoration: none;
+  text-align: center;
   margin: 14% 10% 0 10%;
   background: #FB9BC7;
   background: linear-gradient(90deg, #E580A0 0%, #EBB2C3 55%, #FB9BC7 100%);

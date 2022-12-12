@@ -32,7 +32,7 @@ async function Iniciar() {
         }
     })
 
-    Server.post("/secure/:token/Usuario", async (req, res) => {
+    Server.post("/Usuario", async (req, res) => {
         const {login, senha} = req.body;
         const id_Usuario = await Admin.RegistrarUsuario(login, senha)
 
