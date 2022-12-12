@@ -1,91 +1,66 @@
-import express from "express"
-import database from "./database"
-import { randomBytes } from "crypto"
+import { get_DatabaseConnection } from "./Database";
+import  Express from "express";
+import bodyParser from "body-parser";
+const cors = require("cors");
 
-type TSession = {
-   [key: string]: {
-      id: number,
-      nome: string,
-      email: string,
-   } | undefined
+async function Iniciar() {
+    const { data, Admin, Produto} = await get_DatabaseConnection();
+    const Server = Express();
+
+    Server.use(bodyParser.json())
+    Server.use(cors())
+
+    Server.use("/secure/:token", (req, res, next) => {
+        if(!Admin.get_Permissão(req.params.token)){
+            res.statusCode = 401
+            res.send("É necessário um token! \n para isso realize o login de maneira correta")
+            return
+        }
+        next()
+    })
+
+    Server.post("/secure/:token/CadastroIten", async (req, res) => {
+        const {produto, quantidade, setor} = req.body;
+        const id_ProdutoNovo  = await Produto.RegistrarItens(produto, quantidade, setor) 
+    
+        if (!id_ProdutoNovo) {
+            res.statusCode = 400
+            res.json("Ele já se encontra na nossa base de dados")
+            return
+        } else {
+            res.json({ id_ProdutoNovo})
+        }
+    })
+
+    Server.post("/secure/:token/Usuario", async (req, res) => {
+        const {login, senha} = req.body;
+        const id_Usuario = await Admin.RegistrarUsuario(login, senha)
+
+        if(!id_Usuario) {
+            res.statusCode = 400
+            res.json("Colaborar já cadastrado na base de dados")
+            return
+        } else {
+            res.json({id_Usuario})
+        }
+    })
+
+    Server.post("/Login", async (req, res) => {
+        const {login, senha} = req.body
+        const token = await Admin.get_Token(login, senha)
+
+        if(token){
+            res.statusCode = 200
+            res.json({token})
+            return
+
+        } else {
+            res.statusCode = 401
+            res.json("Os seus dados informados não conferem")
+        }
+    })
+
+    Server.listen(8080, () => console.log("⚡ - Servidor HTTP rodando"))
 }
 
-const port = 8080
-const app = express()
-const session: TSession = {}
-
-app.use(express.json())
-app.use("/", express.static("../app/dist"))
-
-// CREATE
-app.post("/api/user/", (req, res) => {
-   const errors: string[] = []
-
-   if (!req.body.name)
-      errors.push("No name specified")
-
-   if (!req.body.password)
-      errors.push("No password specified")
-
-   if (!req.body.email)
-      errors.push("No email specified")
-
-   if (errors.length) {
-      res.status(400).json({ "error": errors.join() })
-      return
-   }
-
-   const { name, email, password } = req.body
-   const sql = 'INSERT INTO user (name, email, password) VALUES (?,?,?)'
-   const params = [name, email, password]
-
-   database.run(sql, params, function (err) {
-      if (err) {
-         res.status(400).json({ "error": err.message })
-         return
-      }
-
-      res.status(200).json({
-         "message": "success",
-         "data": { name, email, password },
-         "id": this.lastID
-      })
-   })
-})
-
-app.post("/api/login/", (req, res) => {
-   const sql = "SELECT id, name, email FROM user WHERE email=? AND password=?"
-   const { email, password } = req.body
-
-   database.get(sql, [email, password], (err, row) => {
-      if (err) {
-         res.status(400).json({ "error": err.message });
-         return;
-      }
-
-      if (!row?.id) {
-         res.status(404).json({ "error": "user not found!" })
-         return
-      }
-
-      randomBytes(48, (err: any, buffer: any) => {
-         const token = buffer.toString('hex')
-         session[token] = row
-         res.status(200).json({ "message": "success", token })
-      })
-   })
-})
-
-app.get("/api/logged/:token", (req, res) => {
-   const user = session[req.params.token]
-
-   if (!user) {
-      res.status(400).json({ error: "Usuário não esta logado!"})
-      return
-   }
-
-   res.json(user)
-})
-
-
-app.listen(port, () => console.log(`⚡ servidor ${port}`))
+Iniciar();
